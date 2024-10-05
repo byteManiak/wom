@@ -1,10 +1,12 @@
 package com.bytemaniak.wov.mixin.client;
 
 import com.bytemaniak.wov.interfaces.WowCamera;
+import com.bytemaniak.wov.registry.Keybindings;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.util.GlfwUtil;
 import net.minecraft.entity.player.PlayerInventory;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,6 +21,7 @@ public abstract class MouseMixin {
     @Shadow private boolean rightButtonClicked;
     @Shadow private boolean leftButtonClicked;
     @Shadow private boolean middleButtonClicked;
+    @Shadow private double lastTickTime;
 
     @Shadow public abstract void unlockCursor();
 
@@ -26,7 +29,7 @@ public abstract class MouseMixin {
     private void unlockCursorOnRelease(long window, int button, int action, int mods, CallbackInfo ci) {
         // Unlock cursor only if a single button was pressed
         if (action == 0 &&
-            (leftButtonClicked^rightButtonClicked^middleButtonClicked))
+            (leftButtonClicked ^ rightButtonClicked ^ middleButtonClicked))
             unlockCursor();
     }
 
@@ -48,5 +51,20 @@ public abstract class MouseMixin {
         camera.wov$applyZoom(scrollAmount);
 
         return false;
+    }
+
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void applyTurn(CallbackInfo ci) {
+        float timeDelta = (float)(GlfwUtil.getTime() - lastTickTime);
+
+        if (!rightButtonClicked) {
+            ClientPlayerEntity player = client.player;
+            if (player == null) return;
+
+            if (Keybindings.TURN_LEFT.isPressed())
+                player.setYaw(player.getYaw() - 150*timeDelta);
+            if (Keybindings.TURN_RIGHT.isPressed())
+                player.setYaw(player.getYaw() + 150*timeDelta);
+        }
     }
 }

@@ -1,18 +1,13 @@
 package com.bytemaniak.wov.mixin.client;
 
 import com.bytemaniak.wov.interfaces.WowCamera;
-import com.bytemaniak.wov.registry.Keybindings;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.entity.Entity;
-import net.minecraft.world.BlockView;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Camera.class)
 public class CameraMixin implements WowCamera {
@@ -27,16 +22,6 @@ public class CameraMixin implements WowCamera {
     @WrapOperation(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;getPitch(F)F"))
     private float applyPitchOffset(Entity entity, float tickDelta, Operation<Float> original) {
         return offsetPitch;
-    }
-
-    @Inject(method = "update", at = @At("HEAD"))
-    private void applyTurn(BlockView area, Entity focusedEntity, boolean thirdPerson, boolean inverseView, float tickDelta, CallbackInfo ci) {
-        if (!MinecraftClient.getInstance().mouse.wasRightButtonClicked()) {
-            if (Keybindings.TURN_LEFT.isPressed())
-                focusedEntity.setYaw(focusedEntity.getYaw() - 3.5f*tickDelta);
-            if (Keybindings.TURN_RIGHT.isPressed())
-                focusedEntity.setYaw(focusedEntity.getYaw() + 3.5f*tickDelta);
-        }
     }
 
     @Override
