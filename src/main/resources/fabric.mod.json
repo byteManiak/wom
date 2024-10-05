@@ -1,0 +1,41 @@
+{
+	"schemaVersion": 1,
+	"id": "wov",
+	"version": "${version}",
+	"name": "World of Voltcraft",
+	"description": "A total conversion mod focused on harnessing the power of lightning. Inspired by World of Warcraft",
+	"authors": [
+		"byteManiak"
+	],
+	"contact": {
+		"homepage": "",
+		"sources": "https://github.com/bytemaniak/wov"
+	},
+	"license": "MIT",
+	"icon": "assets/wov/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.bytemaniak.wov.Wov"
+		],
+		"client": [
+			"com.bytemaniak.wov.WovClient"
+		]
+	},
+	"mixins": [
+		"wov.mixins.json",
+		{
+			"config": "wov.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.2",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
