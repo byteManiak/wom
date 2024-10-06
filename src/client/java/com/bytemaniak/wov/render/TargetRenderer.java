@@ -32,7 +32,7 @@ public class TargetRenderer implements WorldRenderEvents.End {
 
     private double mouseX, mouseY;
     private boolean wasClicked;
-    private LivingEntity focusedEntity = null;
+    public LivingEntity focusedEntity = null;
 
     private void genVertex(VertexConsumer vertexConsumer, Matrix4f positionMatrix, Vec3d camera, Vec3d vec, Vec3d col, float u, float v) {
         float x = (float)(vec.x - camera.x);

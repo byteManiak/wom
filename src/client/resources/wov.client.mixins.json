@@ -1,16 +1,18 @@
 {
-	"required": true,
-	"package": "com.bytemaniak.wov.mixin.client",
-	"compatibilityLevel": "JAVA_21",
-	"client": [
-		"CameraMixin",
-		"GameMenuScreenMixin",
-		"GameOptionsMixin",
-		"KeyboardInputMixin",
-		"MinecraftClientMixin",
-		"MouseMixin"
-	],
-	"injectors": {
-		"defaultRequire": 1
+  "required": true,
+  "package": "com.bytemaniak.wov.mixin.client",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "CameraMixin",
+    "EntityRendererMixin",
+    "GameMenuScreenMixin",
+    "GameOptionsMixin",
+    "KeyboardInputMixin",
+    "MinecraftClientMixin",
+    "MobEntityRendererMixin",
+    "MouseMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
 	}
 }
