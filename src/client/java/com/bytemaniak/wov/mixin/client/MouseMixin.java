@@ -8,9 +8,11 @@ import net.minecraft.client.Mouse;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.GlfwUtil;
 import net.minecraft.entity.player.PlayerInventory;
+import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -22,15 +24,26 @@ public abstract class MouseMixin {
     @Shadow private boolean leftButtonClicked;
     @Shadow private boolean middleButtonClicked;
     @Shadow private double lastTickTime;
+    @Shadow private double x;
+    @Shadow private double y;
 
     @Shadow public abstract void unlockCursor();
+    @Shadow public abstract boolean isCursorLocked();
+
+    @Unique private double lastX, lastY;
 
     @Inject(method = "onMouseButton", at = @At("HEAD"))
-    private void unlockCursorOnRelease(long window, int button, int action, int mods, CallbackInfo ci) {
+    private void handleMouseClick(long window, int button, int action, int mods, CallbackInfo ci) {
+        if (action == 1 && !isCursorLocked()) {
+            lastX = x; lastY = y;
+        }
         // Unlock cursor only if a single button was pressed
-        if (action == 0 &&
-            (leftButtonClicked ^ rightButtonClicked ^ middleButtonClicked))
+        else if (action == 0 &&
+            (leftButtonClicked ^ rightButtonClicked ^ middleButtonClicked)) {
             unlockCursor();
+            x = lastX; y = lastY;
+            GLFW.glfwSetCursorPos(client.getWindow().getHandle(), x, y);
+        }
     }
 
     @WrapWithCondition(method = "updateMouse" , at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;changeLookDirection(DD)V"))
