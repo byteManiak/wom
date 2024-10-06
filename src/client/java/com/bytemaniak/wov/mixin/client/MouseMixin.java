@@ -2,6 +2,7 @@ package com.bytemaniak.wov.mixin.client;
 
 import com.bytemaniak.wov.interfaces.WowCamera;
 import com.bytemaniak.wov.registry.Keybindings;
+import com.bytemaniak.wov.registry.Renderers;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
@@ -31,11 +32,16 @@ public abstract class MouseMixin {
     @Shadow public abstract boolean isCursorLocked();
 
     @Unique private double lastX, lastY;
+    @Unique private double leftClickStartTick = 0;
+    @Unique private static final double LEFT_CLICK_ACTION_TIME = .15f;
 
     @Inject(method = "onMouseButton", at = @At("HEAD"))
     private void handleMouseClick(long window, int button, int action, int mods, CallbackInfo ci) {
         if (action == 1 && !isCursorLocked()) {
             lastX = x; lastY = y;
+
+            if (button == 0)
+                leftClickStartTick = GlfwUtil.getTime();
         }
         // Unlock cursor only if a single button was pressed
         else if (action == 0 &&
@@ -43,6 +49,12 @@ public abstract class MouseMixin {
             unlockCursor();
             x = lastX; y = lastY;
             GLFW.glfwSetCursorPos(client.getWindow().getHandle(), x, y);
+
+            if (button == 0) {
+                double leftClickEndTick = GlfwUtil.getTime();
+                if (leftClickEndTick - leftClickStartTick < LEFT_CLICK_ACTION_TIME)
+                    Renderers.TARGET_RENDERER.setScreenCoords(x, y);
+            }
         }
     }
 

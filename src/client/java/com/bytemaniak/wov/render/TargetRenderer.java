@@ -1,24 +1,38 @@
 package com.bytemaniak.wov.render;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.*;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.passive.PassiveEntity;
+import net.minecraft.entity.ai.TargetPredicate;
+import net.minecraft.entity.mob.Angerable;
+import net.minecraft.entity.mob.Monster;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.util.shape.VoxelShapes;
+import net.minecraft.world.World;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.lwjgl.opengl.GL11;
 
 public class TargetRenderer implements WorldRenderEvents.End {
     private static final Identifier OVERLAY = Identifier.of("wov:textures/misc/target.png");
     private static final RenderLayer LAYER = RenderLayer.getEntityTranslucentEmissive(OVERLAY);
     private static final VertexConsumerProvider.Immediate vertexConsumerProvider = VertexConsumerProvider.immediate(new BufferAllocator(64));
+    private static final double HITSCAN_STEPS = 600;
+    private static final double HITSCAN_RADIUS = .05f;
+
+    private double mouseX, mouseY;
+    private boolean wasClicked;
+    private LivingEntity focusedEntity = null;
 
     private void genVertex(VertexConsumer vertexConsumer, Matrix4f positionMatrix, Vec3d camera, Vec3d vec, Vec3d col, float u, float v) {
         float x = (float)(vec.x - camera.x);
@@ -34,21 +48,86 @@ public class TargetRenderer implements WorldRenderEvents.End {
         genVertex(vertexConsumer, positionMatrix, camera, pos.add(length, 0, -length), color, 1, 0);
     }
 
+    public void setScreenCoords(double x, double y) {
+        mouseX = x; mouseY = y;
+        wasClicked = true;
+    }
+
+    private void getEntityAtMouseCoords(WorldRenderContext context) {
+        World world = context.world();
+        Camera camera = context.camera();
+		int displayHeight = MinecraftClient.getInstance().getWindow().getHeight();
+		int displayWidth = MinecraftClient.getInstance().getWindow().getWidth();
+		int[] viewport = new int[4];
+		GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+		Vector3f nearF = new Vector3f();
+        Vector3f farF = new Vector3f();
+
+		Matrix4f matrixProj = new Matrix4f(RenderSystem.getProjectionMatrix());
+        Matrix4f matrixProj2 = new Matrix4f(RenderSystem.getProjectionMatrix());
+		Matrix4f matrixModel = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+        matrixProj.mul(matrixModel)
+                .mul(context.positionMatrix())
+                .unproject((float) mouseX / displayWidth * viewport[2],
+                        (float) (displayHeight - mouseY) / displayHeight * viewport[3], 0, viewport, nearF);
+        matrixProj2.mul(matrixModel)
+                .mul(context.positionMatrix())
+                .unproject((float) mouseX / displayWidth * viewport[2],
+                        (float) (displayHeight - mouseY) / displayHeight * viewport[3], 1, viewport, farF);
+
+        Vec3d near = new Vec3d(nearF.x, nearF.y, nearF.z).add(camera.getPos());
+        Vec3d far = new Vec3d(farF.x, farF.y, farF.z).add(camera.getPos());
+        Vec3d step = far.subtract(near).normalize().multiply(.25f);
+        Vec3d pos = near;
+
+        for (int i = 0; i < HITSCAN_STEPS; i++) {
+            pos = pos.add(step);
+            Vec3d minPos = pos.add(new Vec3d(-HITSCAN_RADIUS, -HITSCAN_RADIUS, -HITSCAN_RADIUS));
+            Vec3d maxPos = pos.add(new Vec3d(HITSCAN_RADIUS, HITSCAN_RADIUS, HITSCAN_RADIUS));
+            Box collisionBox = new Box(minPos, maxPos);
+            Vec3i posI = new Vec3i((int)Math.floor(pos.x), (int)Math.floor(pos.y), (int)Math.floor(pos.z));
+            BlockPos blockPos = new BlockPos(posI);
+
+            LivingEntity collided = world.getClosestEntity(LivingEntity.class, TargetPredicate.DEFAULT, MinecraftClient.getInstance().player, pos.x, pos.y, pos.z, collisionBox);
+            if (collided != null) {
+                focusedEntity = collided;
+                break;
+            }
+
+            if (world.isChunkLoaded(blockPos)) {
+                VoxelShape collisionShape = world.getBlockState(blockPos).getCollisionShape(world, blockPos);
+                if (collisionShape != VoxelShapes.empty()) {
+                    Box blockCollisionBox = collisionShape.getBoundingBox().offset(blockPos);
+                    if (blockCollisionBox.intersects(collisionBox)) {
+                        focusedEntity = null;
+                        break;
+                    }
+                }
+            }
+        }
+
+        wasClicked = false;
+    }
+
     @Override
     public void onEnd(WorldRenderContext context) {
         Matrix4f positionMatrix = context.positionMatrix();
         Vec3d cameraPos = context.camera().getPos();
         VertexConsumer vertexConsumer = vertexConsumerProvider.getBuffer(LAYER);
-        /// TODO: Get the actual focused entity
-        LivingEntity focusedEntity = MinecraftClient.getInstance().player;
+
+        if (wasClicked) getEntityAtMouseCoords(context);
 
         if (focusedEntity == null) return;
 
         Vec3d pos = focusedEntity.getLerpedPos(context.tickCounter().getTickDelta(true)).add(0, 0.01f, 0);
         double length = focusedEntity.getBoundingBox().getAverageSideLength();
-        Vec3d color = focusedEntity instanceof HostileEntity ? new Vec3d(1, 0, 0) :
-                focusedEntity instanceof PassiveEntity ? new Vec3d(1, 1, 0) :
-                focusedEntity.isDead() ? new Vec3d(.25, .25, .25) : new Vec3d(0, 1, 0);
+        Vec3d color;
+        if (focusedEntity instanceof Monster) color = new Vec3d(1, 0, 0);
+        else if (focusedEntity instanceof Angerable) color = new Vec3d(1, 1, 0);
+        else if (focusedEntity instanceof PlayerEntity) color = new Vec3d(1, 1, 0);
+        else if (focusedEntity.isDead()) color = new Vec3d(.25, .25, .25);
+        else color = new Vec3d(0, 1, 0);
 
         genQuad(vertexConsumer, positionMatrix, cameraPos, pos, length, color);
 
