@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.BufferAllocator;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.TargetPredicate;
 import net.minecraft.entity.mob.Angerable;
@@ -32,7 +33,7 @@ public class TargetRenderer implements WorldRenderEvents.End {
 
     private double mouseX, mouseY;
     private boolean wasClicked;
-    public LivingEntity focusedEntity = null;
+    public int focusedEntityId = -1;
 
     private void genVertex(VertexConsumer vertexConsumer, Matrix4f positionMatrix, Vec3d camera, Vec3d vec, Vec3d col, float u, float v) {
         float x = (float)(vec.x - camera.x);
@@ -91,7 +92,7 @@ public class TargetRenderer implements WorldRenderEvents.End {
 
             LivingEntity collided = world.getClosestEntity(LivingEntity.class, TargetPredicate.DEFAULT, MinecraftClient.getInstance().player, pos.x, pos.y, pos.z, collisionBox);
             if (collided != null) {
-                focusedEntity = collided;
+                focusedEntityId = collided.getId();
                 break;
             }
 
@@ -100,7 +101,7 @@ public class TargetRenderer implements WorldRenderEvents.End {
                 if (collisionShape != VoxelShapes.empty()) {
                     Box blockCollisionBox = collisionShape.getBoundingBox().offset(blockPos);
                     if (blockCollisionBox.intersects(collisionBox)) {
-                        focusedEntity = null;
+                        focusedEntityId = -1;
                         break;
                     }
                 }
@@ -115,18 +116,23 @@ public class TargetRenderer implements WorldRenderEvents.End {
         Matrix4f positionMatrix = context.positionMatrix();
         Vec3d cameraPos = context.camera().getPos();
         VertexConsumer vertexConsumer = vertexConsumerProvider.getBuffer(LAYER);
+        LivingEntity focusedEntity;
+        Entity entity;
 
         if (wasClicked) getEntityAtMouseCoords(context);
 
-        if (focusedEntity == null) return;
+        if (focusedEntityId == -1) return;
+        entity = context.world().getEntityById(focusedEntityId);
+        if (!(entity instanceof LivingEntity)) return;
+        focusedEntity = (LivingEntity) entity;
 
         Vec3d pos = focusedEntity.getLerpedPos(context.tickCounter().getTickDelta(true)).add(0, 0.01f, 0);
         double length = focusedEntity.getBoundingBox().getAverageSideLength();
         Vec3d color;
-        if (focusedEntity instanceof Monster) color = new Vec3d(1, 0, 0);
+        if (focusedEntity.isDead()) color = new Vec3d(.5, .5, .5);
+        else if (focusedEntity instanceof Monster) color = new Vec3d(1, 0, 0);
         else if (focusedEntity instanceof Angerable) color = new Vec3d(1, 1, 0);
         else if (focusedEntity instanceof PlayerEntity) color = new Vec3d(1, 1, 0);
-        else if (focusedEntity.isDead()) color = new Vec3d(.25, .25, .25);
         else color = new Vec3d(0, 1, 0);
 
         genQuad(vertexConsumer, positionMatrix, cameraPos, pos, length, color);

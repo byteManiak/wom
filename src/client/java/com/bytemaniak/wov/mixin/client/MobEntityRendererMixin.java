@@ -16,6 +16,6 @@ public abstract class MobEntityRendererMixin<T extends MobEntity, M extends Enti
 
     @Override
     public boolean hasLabel(T livingEntity) {
-        return livingEntity == Renderers.TARGET_RENDERER.focusedEntity;
+        return livingEntity.getId() == Renderers.TARGET_RENDERER.focusedEntityId;
     }
 }

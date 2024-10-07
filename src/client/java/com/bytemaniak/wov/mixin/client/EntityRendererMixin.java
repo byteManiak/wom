@@ -45,10 +45,10 @@ public abstract class EntityRendererMixin<T extends Entity> {
 				    int background = (int)(opacity * 255) << 24;
 
                     int color;
-                    if (mob instanceof Monster) color = 0xFFFF0000;
+                    if (mob.isDead()) color = 0xFF888888;
+                    else if (mob instanceof Monster) color = 0xFFFF0000;
                     else if (mob instanceof Angerable) color = 0xFFFFFF00;
-                    else if (mob.isDead()) color = 0xFF444444;
-                    else color = 0XFF00FF00;
+                    else color = 0xFF00FF00;
 
                     textRenderer.draw(text, x, 0, 0, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, background, light);
                     textRenderer.draw(text, x, 0, color, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0, light);
