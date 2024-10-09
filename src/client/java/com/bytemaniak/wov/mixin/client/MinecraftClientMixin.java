@@ -7,14 +7,17 @@ import net.minecraft.client.Mouse;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.option.Perspective;
+import net.minecraft.entity.player.PlayerInventory;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(MinecraftClient.class)
-public class MinecraftClientMixin {
+public abstract class MinecraftClientMixin {
     @Shadow @Final public GameOptions options;
+
+    @Shadow protected abstract boolean doAttack();
 
     @WrapOperation(method = "handleInputEvents", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/option/GameOptions;setPerspective(Lnet/minecraft/client/option/Perspective;)V"))
     private void forceThirdPerson(GameOptions instance, Perspective perspective, Operation<Void> original) {
@@ -38,5 +41,11 @@ public class MinecraftClientMixin {
             return false;
 
         return original.call(key);
+    }
+
+    @WrapOperation(method = "handleInputEvents", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/player/PlayerInventory;selectedSlot:I"))
+    private void attackOnHotbarPress(PlayerInventory instance, int value, Operation<Void> original) {
+        original.call(instance, value);
+        doAttack();
     }
 }

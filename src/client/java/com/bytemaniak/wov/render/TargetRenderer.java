@@ -10,7 +10,10 @@ import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.TargetPredicate;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
@@ -30,6 +33,7 @@ public class TargetRenderer implements WorldRenderEvents.End {
     private static final double HITSCAN_RADIUS = .05f;
 
     private double mouseX, mouseY;
+    private boolean tryInteract;
     private boolean wasClicked;
     public int focusedEntityId = -1;
 
@@ -51,8 +55,9 @@ public class TargetRenderer implements WorldRenderEvents.End {
         genVertex(vertexConsumer, positionMatrix, camera, pos.add(length, 0, -length), color, 1, 0);
     }
 
-    public void setScreenCoords(double x, double y) {
+    public void setScreenCoords(double x, double y, boolean interact) {
         mouseX = x; mouseY = y;
+        tryInteract = interact;
         wasClicked = true;
     }
 
@@ -113,6 +118,14 @@ public class TargetRenderer implements WorldRenderEvents.End {
         wasClicked = false;
     }
 
+    private void interactEntity(LivingEntity entity) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        EntityHitResult result = new EntityHitResult(entity, entity.getPos());
+        ActionResult actionResult = client.interactionManager.interactEntityAtLocation(client.player, entity, result, Hand.MAIN_HAND);
+        if (!actionResult.isAccepted())
+            client.interactionManager.interactEntity(client.player, entity, Hand.MAIN_HAND);
+    }
+
     @Override
     public void onEnd(WorldRenderContext context) {
         Matrix4f positionMatrix = context.positionMatrix();
@@ -127,6 +140,11 @@ public class TargetRenderer implements WorldRenderEvents.End {
         entity = context.world().getEntityById(focusedEntityId);
         if (!(entity instanceof LivingEntity)) return;
         focusedEntity = (LivingEntity) entity;
+
+        if (tryInteract) {
+            interactEntity(focusedEntity);
+            tryInteract = false;
+        }
 
         Vec3d pos = focusedEntity.getLerpedPos(context.tickCounter().getTickDelta(true)).add(0, 0.01f, 0);
         double length = focusedEntity.getBoundingBox().getAverageSideLength();
