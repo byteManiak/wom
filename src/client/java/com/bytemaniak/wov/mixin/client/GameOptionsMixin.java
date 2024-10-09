@@ -5,6 +5,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.option.Perspective;
+import net.minecraft.client.option.SimpleOption;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -32,5 +33,10 @@ public class GameOptionsMixin {
     @ModifyReturnValue(method = "getPerspective", at = @At("RETURN"))
     private Perspective forceThirdPerson(Perspective original) {
         return Perspective.THIRD_PERSON_BACK;
+    }
+
+    @ModifyReturnValue(method = "getBobView", at = @At("RETURN"))
+    private SimpleOption<Boolean> cancelBobbing(SimpleOption<Boolean> original) {
+        return SimpleOption.ofBoolean("options.viewBobbing", false);
     }
 }
