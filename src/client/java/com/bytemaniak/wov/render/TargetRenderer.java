@@ -13,6 +13,7 @@ import net.minecraft.entity.ai.TargetPredicate;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -36,6 +37,7 @@ public class TargetRenderer implements WorldRenderEvents.End {
     private boolean tryInteract;
     private boolean wasClicked;
     public int focusedEntityId = -1;
+    public BlockPos focusedBlockPos = null;
 
     private void genVertex(VertexConsumer vertexConsumer, Matrix4f positionMatrix, Vec3d camera, Vec3d vec, int col, float u, float v) {
         float x = (float)(vec.x - camera.x);
@@ -100,6 +102,7 @@ public class TargetRenderer implements WorldRenderEvents.End {
             LivingEntity collided = world.getClosestEntity(LivingEntity.class, TargetPredicate.DEFAULT, MinecraftClient.getInstance().player, pos.x, pos.y, pos.z, collisionBox);
             if (collided != null) {
                 focusedEntityId = collided.getId();
+                focusedBlockPos = null;
                 break;
             }
 
@@ -109,6 +112,7 @@ public class TargetRenderer implements WorldRenderEvents.End {
                     Box blockCollisionBox = collisionShape.getBoundingBox().offset(blockPos);
                     if (blockCollisionBox.intersects(collisionBox)) {
                         focusedEntityId = -1;
+                        focusedBlockPos = blockPos;
                         break;
                     }
                 }
@@ -118,40 +122,48 @@ public class TargetRenderer implements WorldRenderEvents.End {
         wasClicked = false;
     }
 
-    private void interactEntity(LivingEntity entity) {
+    private void interact(WorldRenderContext context) {
+        /// TODO: Try to make this a proper raycast + hit result
         MinecraftClient client = MinecraftClient.getInstance();
-        EntityHitResult result = new EntityHitResult(entity, entity.getPos());
-        ActionResult actionResult = client.interactionManager.interactEntityAtLocation(client.player, entity, result, Hand.MAIN_HAND);
-        if (!actionResult.isAccepted())
-            client.interactionManager.interactEntity(client.player, entity, Hand.MAIN_HAND);
+        if (focusedEntityId > -1) {
+            Entity entity = context.world().getEntityById(focusedEntityId);
+            if (!(entity instanceof LivingEntity)) return;
+
+            EntityHitResult result = new EntityHitResult(entity, entity.getPos());
+            ActionResult actionResult = client.interactionManager.interactEntityAtLocation(client.player, entity, result, Hand.MAIN_HAND);
+            if (!actionResult.isAccepted())
+                client.interactionManager.interactEntity(client.player, entity, Hand.MAIN_HAND);
+        } else if (focusedBlockPos != null) {
+            BlockHitResult result = new BlockHitResult(focusedBlockPos.toCenterPos(), client.player.getFacing(), focusedBlockPos, false);
+            client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, result);
+        }
     }
 
-    @Override
-    public void onEnd(WorldRenderContext context) {
+    private void renderTarget(WorldRenderContext context) {
         Matrix4f positionMatrix = context.positionMatrix();
         Vec3d cameraPos = context.camera().getPos();
         VertexConsumer vertexConsumer = vertexConsumerProvider.getBuffer(LAYER);
-        LivingEntity focusedEntity;
-        Entity entity;
-
-        if (wasClicked) getEntityAtMouseCoords(context);
-
-        if (focusedEntityId == -1) return;
-        entity = context.world().getEntityById(focusedEntityId);
+        Entity entity = context.world().getEntityById(focusedEntityId);
         if (!(entity instanceof LivingEntity)) return;
-        focusedEntity = (LivingEntity) entity;
 
-        if (tryInteract) {
-            interactEntity(focusedEntity);
-            tryInteract = false;
-        }
-
-        Vec3d pos = focusedEntity.getLerpedPos(context.tickCounter().getTickDelta(true)).add(0, 0.01f, 0);
-        double length = focusedEntity.getBoundingBox().getAverageSideLength();
-        int color = MiscUtils.getTargetColor(focusedEntity);
+        Vec3d pos = entity.getLerpedPos(context.tickCounter().getTickDelta(true)).add(0, 0.01f, 0);
+        double length = entity.getBoundingBox().getAverageSideLength();
+        int color = MiscUtils.getTargetColor((LivingEntity) entity);
 
         genQuad(vertexConsumer, positionMatrix, cameraPos, pos, length, color);
 
         vertexConsumerProvider.draw();
+    }
+
+    @Override
+    public void onEnd(WorldRenderContext context) {
+        if (wasClicked) getEntityAtMouseCoords(context);
+
+        if (tryInteract) {
+            interact(context);
+            tryInteract = false;
+        }
+
+        if (focusedEntityId > -1) renderTarget(context);
     }
 }
