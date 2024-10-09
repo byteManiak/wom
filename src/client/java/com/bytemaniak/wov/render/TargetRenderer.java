@@ -1,5 +1,6 @@
 package com.bytemaniak.wov.render;
 
+import com.bytemaniak.wov.misc.MiscUtils;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
@@ -9,9 +10,6 @@ import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.TargetPredicate;
-import net.minecraft.entity.mob.Angerable;
-import net.minecraft.entity.mob.Monster;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -35,14 +33,18 @@ public class TargetRenderer implements WorldRenderEvents.End {
     private boolean wasClicked;
     public int focusedEntityId = -1;
 
-    private void genVertex(VertexConsumer vertexConsumer, Matrix4f positionMatrix, Vec3d camera, Vec3d vec, Vec3d col, float u, float v) {
+    private void genVertex(VertexConsumer vertexConsumer, Matrix4f positionMatrix, Vec3d camera, Vec3d vec, int col, float u, float v) {
         float x = (float)(vec.x - camera.x);
         float y = (float)(vec.y - camera.y);
         float z = (float)(vec.z - camera.z);
-        vertexConsumer.vertex(positionMatrix, x, y, z).color((float)col.x, (float)col.y, (float)col.z, 1).texture(u, v).overlay(OverlayTexture.DEFAULT_UV).light(1).normal(0, 1, 0);
+        float a = (col >> 24)/255f;
+        float r = ((col & 0xFF0000) >> 16)/255f;
+        float g = ((col & 0xFF00) >> 8)/255f;
+        float b = (col & 0xFF)/255f;
+        vertexConsumer.vertex(positionMatrix, x, y, z).color(r, g, b, a).texture(u, v).overlay(OverlayTexture.DEFAULT_UV).light(1).normal(0, 1, 0);
     }
 
-    private void genQuad(VertexConsumer vertexConsumer, Matrix4f positionMatrix, Vec3d camera, Vec3d pos, double length, Vec3d color) {
+    private void genQuad(VertexConsumer vertexConsumer, Matrix4f positionMatrix, Vec3d camera, Vec3d pos, double length, int color) {
         genVertex(vertexConsumer, positionMatrix, camera, pos.add(-length, 0, -length), color, 0, 0);
         genVertex(vertexConsumer, positionMatrix, camera, pos.add(-length, 0, length), color, 0, 1);
         genVertex(vertexConsumer, positionMatrix, camera, pos.add(length, 0, length), color, 1, 1);
@@ -128,12 +130,7 @@ public class TargetRenderer implements WorldRenderEvents.End {
 
         Vec3d pos = focusedEntity.getLerpedPos(context.tickCounter().getTickDelta(true)).add(0, 0.01f, 0);
         double length = focusedEntity.getBoundingBox().getAverageSideLength();
-        Vec3d color;
-        if (focusedEntity.isDead()) color = new Vec3d(.5, .5, .5);
-        else if (focusedEntity instanceof Monster) color = new Vec3d(1, 0, 0);
-        else if (focusedEntity instanceof Angerable) color = new Vec3d(1, 1, 0);
-        else if (focusedEntity instanceof PlayerEntity) color = new Vec3d(1, 1, 0);
-        else color = new Vec3d(0, 1, 0);
+        int color = MiscUtils.getTargetColor(focusedEntity);
 
         genQuad(vertexConsumer, positionMatrix, cameraPos, pos, length, color);
 

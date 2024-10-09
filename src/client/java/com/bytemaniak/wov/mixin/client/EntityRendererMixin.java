@@ -1,5 +1,6 @@
 package com.bytemaniak.wov.mixin.client;
 
+import com.bytemaniak.wov.misc.MiscUtils;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.MinecraftClient;
@@ -10,9 +11,7 @@ import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityAttachmentType;
-import net.minecraft.entity.mob.Angerable;
 import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.Monster;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
@@ -43,12 +42,7 @@ public abstract class EntityRendererMixin<T extends Entity> {
                     float x = -textRenderer.getWidth(text) / 2f;
                     float opacity = MinecraftClient.getInstance().options.getTextBackgroundOpacity(.25f);
 				    int background = (int)(opacity * 255) << 24;
-
-                    int color;
-                    if (mob.isDead()) color = 0xFF888888;
-                    else if (mob instanceof Monster) color = 0xFFFF0000;
-                    else if (mob instanceof Angerable) color = 0xFFFFFF00;
-                    else color = 0xFF00FF00;
+                    int color = MiscUtils.getTargetColor(mob);
 
                     textRenderer.draw(text, x, 0, 0, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, background, light);
                     textRenderer.draw(text, x, 0, color, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0, light);
